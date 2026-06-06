@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrepMeter - Smart Preparation Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        /* ============ ROOT VARIABLES ============ */
+        :root {
+            --primary: #6c5ce7;
+            --primary-light: #a29bfe;
+            --primary-dark: #5541d7;
+            --secondary: #00cec9;
+            --accent: #fd79a8;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+            --dark: #2d3436;
+            --darker: #1e272e;
+            --darkest: #0a0a0a;
+            --glass-bg: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.1);
+            --shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        /* ============ RESET ============ */
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ============ SCROLLBAR ============ */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+        /* ============ BACKGROUND ANIMATION ============ */
+        .bg-orbs {
+            position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+        }
+        .orb {
+            position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.08;
+            animation: orbFloat 20s infinite ease-in-out;
+        }
+        .orb-1 { width:600px; height:600px; background:var(--primary); top:-200px; left:-100px; animation-delay:0s; }
+        .orb-2 { width:400px; height:400px; background:var(--secondary); top:50%; right:-100px; animation-delay:-7s; }
+        .orb-3 { width:500px; height:500px; background:var(--accent); bottom:-200px; left:30%; animation-delay:-14s; }
+        @keyframes orbFloat {
+            0%,100% { transform: translate(0,0) scale(1); }
+            33% { transform: translate(40px,-40px) scale(1.1); }
+            66% { transform: translate(-30px,30px) scale(0.9); }
+        }
+
+        /* ============ AUTH SCREEN ============ */
+        #authScreen {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #0f3460);
+        }
+        .auth-container {
+            width: 100%; max-width: 460px; padding: 20px;
+        }
+        .auth-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+        }
+        .auth-logo {
+            text-align: center; margin-bottom: 32px;
+        }
+        .auth-logo-icon {
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 20px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: 800; margin-bottom: 16px;
+            box-shadow: 0 8px 32px rgba(108,92,231,0.4);
+        }
+        .auth-logo h1 {
+            font-size: 28px; font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .auth-logo p { color: #888; font-size: 14px; margin-top: 6px; }
+        .auth-tabs {
+            display: flex; background: rgba(255,255,255,0.03);
+            border-radius: 12px; padding: 4px; margin-bottom: 28px;
+            border: 1px solid var(--glass-border);
+        }
+        .auth-tab {
+            flex: 1; padding: 10px; text-align: center;
+            border-radius: 10px; cursor: pointer; font-size: 14px;
+            font-weight: 500; color: #888; transition: all 0.3s;
+            border: none; background: none;
+        }
+        .auth-tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #fff;
+        }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .input-group { margin-bottom: 16px; }
+        .input-group label {
+            display: block; font-size: 13px; color: #aaa;
+            margin-bottom: 8px; font-weight: 500;
+        }
+        .input-group input {
+            width: 100%; padding: 13px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; color: #fff;
+            font-size: 14px; font-family: 'Inter', sans-serif;
+            outline: none; transition: border-color 0.3s;
+        }
+        .input-group input:focus { border-color: var(--primary); }
+        .input-group input::placeholder { color: #555; }
+        .auth-btn {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none; border-radius: 12px; color: #fff;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s; font-family: 'Inter', sans-serif;
+            margin-top: 8px;
+        }
+        .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,92,231,0.4); }
+        .auth-divider {
+            text-align: center; position: relative; margin: 20px 0;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: ''; position: absolute; top: 50%;
+            width: 42%; height: 1px; background: var(--glass-border);
+        }
+        .auth-divider::before { left: 0; }
+        .auth-divider::after { right: 0; }
+        .auth-divider span { font-size: 12px; color: #555; padding: 0 10px; }
+        .google-btn {
+            width: 100%; padding: 13px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; color: #fff;
+            font-size: 14px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: all 0.3s; font-family: 'Inter', sans-serif;
+        }
+        .google-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+        .google-icon {
+            width: 20px; height: 20px;
+            background: url('https://www.google.com/favicon.ico') center/contain no-repeat;
+        }
+        .auth-error {
+            background: rgba(225,112,85,0.15); border: 1px solid rgba(225,112,85,0.3);
+            border-radius: 10px; padding: 10px 14px; font-size: 13px;
+            color: var(--danger); margin-bottom: 14px; display: none;
+        }
+        .auth-success {
+            background: rgba(0,184,148,0.15); border: 1px solid rgba(0,184,148,0.3);
+            border-radius: 10px; padding: 10px 14px; font-size: 13px;
+            color: var(--success); margin-bottom: 14px; display: none;
+        }
+        /* Google One Tap hidden */
+        #g_id_onload { display: none; }
+
+        /* ============ APP SCREEN ============ */
+        #appScreen { display: none; }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar {
+            position: fixed; left: 0; top: 0; width: 260px; height: 100vh;
+            background: rgba(5,5,20,0.95); backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            padding: 24px 16px 100px; z-index: 500;
+            transition: transform 0.3s ease; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .sidebar-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 0 8px 20px; border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 8px;
+        }
+        .logo-icon {
+            width: 42px; height: 42px; min-width: 42px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; font-weight: 800;
+        }
+        .logo-text h2 {
+            font-size: 18px; font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo-text p { font-size: 11px; color: #666; }
+        .nav-section-title {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+            color: #555; padding: 8px 12px 4px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 12px; cursor: pointer;
+            transition: all 0.25s; color: #999; font-size: 14px; font-weight: 500;
+            border: none; background: none; width: 100%; text-align: left;
+            position: relative;
+        }
+        .nav-item:hover { background: var(--glass-bg); color: #fff; }
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(108,92,231,0.3), rgba(108,92,231,0.1));
+            color: #fff; border: 1px solid rgba(108,92,231,0.3);
+        }
+        .nav-item i { width: 18px; text-align: center; font-size: 15px; }
+        .nav-badge {
+            margin-left: auto; background: var(--danger); color: #fff;
+            font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700;
+            min-width: 20px; text-align: center;
+        }
+        .sidebar-user {
+            position: fixed; bottom: 0; left: 0; width: 260px;
+            padding: 16px; background: rgba(5,5,20,0.98);
+            border-top: 1px solid var(--glass-border);
+            display: flex; align-items: center; gap: 12px;
+        }
+        .user-avatar {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 15px; overflow: hidden; flex-shrink: 0;
+        }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-info { flex: 1; overflow: hidden; }
+        .user-info h4 { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-info p { font-size: 11px; color: #666; }
+        .logout-btn {
+            background: none; border: none; color: #666; cursor: pointer;
+            padding: 6px; border-radius: 8px; transition: all 0.3s; font-size: 14px;
+        }
+        .logout-btn:hover { color: var(--danger); background: rgba(225,112,85,0.1); }
+
+        /* ============ MAIN CONTENT ============ */
+        .main-content {
+            margin-left: 260px; padding: 28px; min-height: 100vh;
+            transition: margin 0.3s;
+        }
+        .page-section { display: none; animation: fadeSlide 0.3s ease; }
+        .page-section.active { display: block; }
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============ TOP BAR ============ */
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-title h1 { font-size: 26px; font-weight: 700; }
+        .page-title p { color: #888; font-size: 13px; margin-top: 4px; }
+        .top-actions { display: flex; gap: 10px; align-items: center; }
+        .search-wrap {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; background: var(--glass-bg);
+            border: 1px solid var(--glass-border); border-radius: 12px; width: 240px;
+        }
+        .search-wrap input {
+            background: none; border: none; color: #fff;
+            font-size: 13px; width: 100%; outline: none;
+        }
+        .search-wrap i { color: #666; font-size: 13px; }
+        .icon-btn {
+            width: 40px; height: 40px; border-radius: 12px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            color: #fff; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: all 0.3s; position: relative; font-size: 14px;
+        }
+        .icon-btn:hover { background: var(--primary); border-color: var(--primary); }
+        .notif-dot {
+            position: absolute; top: 8px; right: 8px;
+            width: 7px; height: 7px; background: var(--danger); border-radius: 50%;
+        }
+        .mobile-toggle {
+            display: none; position: fixed; top: 16px; left: 16px; z-index: 600;
+            width: 42px; height: 42px; border-radius: 12px;
+            background: var(--primary); border: none; color: #fff;
+            font-size: 16px; cursor: pointer; align-items: center; justify-content: center;
+            box-shadow: 0 4px 16px rgba(108,92,231,0.4);
+        }
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 499; backdrop-filter: blur(4px);
+        }
+        .sidebar-overlay.active { display: block; }
+
+        /* ============ STATS GRID ============ */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 22px; transition: all 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .stat-card::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        }
+        .stat-card.c1::after { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+        .stat-card.c2::after { background: linear-gradient(90deg, var(--success), #55efc4); }
+        .stat-card.c3::after { background: linear-gradient(90deg, var(--warning), #ffeaa7); }
+        .stat-card.c4::after { background: linear-gradient(90deg, var(--accent), #fab1a0); }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: rgba(255,255,255,0.15); }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .stat-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .c1 .stat-icon { background: rgba(108,92,231,0.15); color: var(--primary-light); }
+        .c2 .stat-icon { background: rgba(0,184,148,0.15); color: var(--success); }
+        .c3 .stat-icon { background: rgba(253,203,110,0.15); color: var(--warning); }
+        .c4 .stat-icon { background: rgba(253,121,168,0.15); color: var(--accent); }
+        .stat-change { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+        .stat-change.up { background: rgba(0,184,148,0.15); color: var(--success); }
+        .stat-change.neutral { background: rgba(253,203,110,0.15); color: var(--warning); }
+        .stat-value { font-size: 30px; font-weight: 800; margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: #888; }
+
+        /* ============ CARDS ============ */
+        .card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 22px;
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;
+        }
+        .card-title { font-size: 16px; font-weight: 700; }
+        .card-title i { margin-right: 8px; color: var(--primary-light); }
+        .btn {
+            padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.3s; border: none; font-family: 'Inter', sans-serif;
+        }
+        .btn-outline {
+            background: var(--glass-bg); border: 1px solid var(--glass-border); color: #fff;
+        }
+        .btn-outline:hover { background: var(--primary); border-color: var(--primary); }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,92,231,0.4); }
+        .btn-success { background: linear-gradient(135deg, var(--success), #55efc4); color: #0a0a0a; }
+        .btn-danger { background: linear-gradient(135deg, var(--danger), #fab1a0); color: #fff; }
+
+        /* ============ 2-COLUMN GRID ============ */
+        .col-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 24px; }
+        .col-2-eq { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+
+        /* ============ TODO ============ */
+        .todo-input-row {
+            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .field {
+            padding: 11px 14px; border-radius: 12px; font-size: 13px;
+            font-family: 'Inter', sans-serif; color: #fff; outline: none;
+            transition: border-color 0.3s;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+        }
+        .field:focus { border-color: var(--primary); }
+        .field option { background: #1a1a2e; }
+        .field-grow { flex: 1; min-width: 200px; }
+        .field::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+        .add-btn {
+            padding: 11px 18px; background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none; border-radius: 12px; color: #fff; font-size: 16px;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .add-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(108,92,231,0.4); }
+        .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .filter-chip {
+            padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: all 0.25s;
+            background: var(--glass-bg); border: 1px solid var(--glass-border); color: #aaa;
+        }
+        .filter-chip.active, .filter-chip:hover {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
+        .todo-list { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+        .todo-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 14px; background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 12px; margin-bottom: 7px; transition: all 0.25s;
+        }
+        .todo-item:hover { background: rgba(255,255,255,0.04); border-color: var(--glass-border); }
+        .todo-item.done { opacity: 0.45; }
+        .todo-item.overdue { border-color: rgba(225,112,85,0.35) !important; }
+        .check-box {
+            width: 22px; height: 22px; border-radius: 7px; border: 2px solid #444;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.25s; flex-shrink: 0; font-size: 12px;
+        }
+        .check-box.checked { background: var(--success); border-color: var(--success); color: #fff; }
+        .todo-body { flex: 1; overflow: hidden; }
+        .todo-text { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+        .todo-item.done .todo-text { text-decoration: line-through; }
+        .todo-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .chip {
+            font-size: 10px; padding: 2px 8px; border-radius: 4px;
+            font-weight: 600; text-transform: uppercase;
+        }
+        .chip-high { background: rgba(225,112,85,0.2); color: var(--danger); }
+        .chip-medium { background: rgba(253,203,110,0.2); color: var(--warning); }
+        .chip-low { background: rgba(0,184,148,0.2); color: var(--success); }
+        .chip-subject { background: rgba(162,155,254,0.15); color: var(--primary-light); }
+        .chip-date { background: rgba(255,255,255,0.05); color: #888; }
+        .chip-overdue { background: rgba(225,112,85,0.2); color: var(--danger); }
+        .del-btn {
+            width: 28px; height: 28px; border-radius: 8px; background: none;
+            border: none; color: #555; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: all 0.25s; flex-shrink: 0;
+        }
+        .del-btn:hover { background: rgba(225,112,85,0.15); color: var(--danger); }
+        .empty-msg {
+            text-align: center; padding: 48px 20px; color: #555;
+        }
+        .empty-msg i { font-size: 40px; margin-bottom: 12px; display: block; }
+        .empty-msg p { font-size: 14px; }
+
+        /* ============ PROGRESS RING ============ */
+        .ring-wrap {
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+        .ring-svg-wrap { position: relative; width: 180px; height: 180px; }
+        .ring-svg-wrap svg { transform: rotate(-90deg); }
+        .ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 12; }
+        .ring-fill {
+            fill: none; stroke: url(#ringGrad); stroke-width: 12;
+            stroke-linecap: round; transition: stroke-dashoffset 1s ease;
+        }
+        .ring-text {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%); text-align: center;
+        }
+        .ring-pct {
+            font-size: 34px; font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .ring-lbl { font-size: 11px; color: #888; }
+        .ring-stats { width: 100%; }
+        .ring-stat {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .ring-stat:last-child { border-bottom: none; }
+        .ring-stat-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #aaa; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .ring-stat-val { font-weight: 700; font-size: 13px; }
+
+        /* ============ CHARTS ============ */
+        .chart-wrap { position: relative; height: 280px; }
+
+        /* ============ AI SECTION ============ */
+        .ai-hero {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+            padding: 24px; background: linear-gradient(135deg, rgba(108,92,231,0.15), rgba(0,206,201,0.08));
+            border-radius: 16px; border: 1px solid rgba(108,92,231,0.25);
+        }
+        .ai-orb {
+            width: 56px; height: 56px; min-width: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 18px; display: flex; align-items: center; justify-content: center;
+            font-size: 26px; animation: aiPulse 2s infinite;
+        }
+        @keyframes aiPulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(108,92,231,0.4); }
+            50% { box-shadow: 0 0 0 14px rgba(108,92,231,0); }
+        }
+        .ai-metrics {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px;
+        }
+        .ai-metric {
+            text-align: center; padding: 20px 14px;
+            background: rgba(255,255,255,0.03); border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .ai-metric-val { font-size: 30px; font-weight: 800; margin-bottom: 4px; }
+        .ai-metric-lbl { font-size: 12px; color: #888; }
+        .insights-list { }
+        .insight {
+            display: flex; gap: 12px; padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .insight:last-child { border-bottom: none; }
+        .insight-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .insight-body h5 { font-size: 13px; margin-bottom: 4px; }
+        .insight-body p { font-size: 12px; color: #888; line-height: 1.5; }
+        .ai-chat-box {
+            background: rgba(0,0,0,0.25); border-radius: 14px;
+            padding: 18px; margin-top: 20px;
+        }
+        .chat-msgs { max-height: 280px; overflow-y: auto; margin-bottom: 14px; }
+        .msg { display: flex; gap: 10px; margin-bottom: 12px; }
+        .msg-avatar {
+            width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 13px;
+        }
+        .msg-avatar.bot { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+        .msg-avatar.usr { background: var(--accent); }
+        .msg-bubble {
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            padding: 10px 14px; font-size: 13px; line-height: 1.6; max-width: 85%;
+        }
+        .chat-input-row { display: flex; gap: 10px; }
+        .chat-input {
+            flex: 1; padding: 11px 14px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 12px; color: #fff; font-size: 13px; outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-input:focus { border-color: var(--primary); }
+        .chat-send {
+            padding: 11px 18px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none; border-radius: 12px; color: #fff;
+            cursor: pointer; font-size: 15px; transition: all 0.3s;
+        }
+        .chat-send:hover { transform: scale(1.05); }
+        .typing { display: inline-flex; gap: 3px; }
+        .typing span {
+            width: 6px; height: 6px; background: var(--primary-light);
+            border-radius: 50%; animation: typeBounce 1.2s infinite;
+        }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typeBounce {
+            0%,60%,100% { transform: translateY(0); }
+            30% { transform: translateY(-7px); }
+        }
+
+        /* ============ TIMER ============ */
+        .timer-center { text-align: center; padding: 32px 20px; }
+        .timer-modes { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px; }
+        .mode-btn {
+            padding: 7px 14px; border-radius: 20px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            color: #aaa; font-size: 12px; cursor: pointer; transition: all 0.25s;
+            font-family: 'Inter', sans-serif;
+        }
+        .mode-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .timer-face {
+            font-size: 72px; font-weight: 800; font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 8px; line-height: 1;
+        }
+        .timer-sub { color: #888; font-size: 13px; margin-bottom: 28px; }
+        .timer-btns { display: flex; gap: 12px; justify-content: center; }
+
+        /* ============ SUBJECTS ============ */
+        .subjects-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
+        .sub-card {
+            padding: 18px; background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px; transition: all 0.25s;
+        }
+        .sub-card:hover { background: rgba(255,255,255,0.04); }
+        .sub-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .sub-name { font-size: 14px; font-weight: 600; }
+        .sub-pct { font-size: 14px; font-weight: 700; color: var(--primary-light); }
+        .progress-bar {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.05);
+            border-radius: 3px; overflow: hidden;
+        }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+        .sub-meta { font-size: 11px; color: #666; margin-top: 7px; }
+
+        /* ============ ACHIEVEMENTS ============ */
+        .badges-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .badge {
+            text-align: center; padding: 18px 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 14px; transition: all 0.3s; cursor: default;
+        }
+        .badge.unlocked:hover { transform: scale(1.05); background: rgba(255,255,255,0.05); }
+        .badge.locked { opacity: 0.25; filter: grayscale(1); }
+        .badge-icon { font-size: 36px; margin-bottom: 8px; }
+        .badge-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+        .badge-desc { font-size: 11px; color: #666; }
+
+        /* ============ STREAK CALENDAR ============ */
+        .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+        .cal-day {
+            aspect-ratio: 1; border-radius: 6px;
+            background: rgba(255,255,255,0.03);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #555; transition: all 0.25s;
+        }
+        .cal-day.on { background: var(--primary); color: #fff; }
+        .cal-day.today { box-shadow: 0 0 0 2px var(--secondary); }
+
+        /* ============ SETTINGS ============ */
+        .setting-group { margin-bottom: 24px; }
+        .setting-group h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--glass-border); color: #aaa; }
+        .setting-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label h4 { font-size: 14px; margin-bottom: 3px; }
+        .setting-label p { font-size: 12px; color: #666; }
+        .toggle {
+            width: 46px; height: 24px; border-radius: 12px;
+            background: rgba(255,255,255,0.1); cursor: pointer;
+            position: relative; transition: all 0.3s; border: none; flex-shrink: 0;
+        }
+        .toggle.on { background: var(--primary); }
+        .toggle::after {
+            content: ''; position: absolute;
+            width: 18px; height: 18px; background: #fff;
+            border-radius: 50%; top: 3px; left: 3px; transition: all 0.3s;
+        }
+        .toggle.on::after { left: 25px; }
+
+        /* ============ TOAST ============ */
+        .toast-wrap {
+            position: fixed; bottom: 24px; right: 24px; z-index: 9000;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            padding: 12px 18px; border-radius: 12px; font-size: 13px; font-weight: 500;
+            backdrop-filter: blur(20px); max-width: 320px;
+            animation: toastIn 0.3s ease; border: 1px solid;
+        }
+        .toast.success { background: rgba(0,184,148,0.15); border-color: rgba(0,184,148,0.3); color: var(--success); }
+        .toast.error { background: rgba(225,112,85,0.15); border-color: rgba(225,112,85,0.3); color: var(--danger); }
+        .toast.info { background: rgba(108,92,231,0.15); border-color: rgba(108,92,231,0.3); color: var(--primary-light); }
+        @keyframes toastIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 1100px) {
+            .stats-grid { grid-template-columns: repeat(2,1fr); }
+        }
+        @media (max-width: 900px) {
+            .col-2 { grid-template-columns: 1fr; }
+            .ai-metrics { grid-template-columns: repeat(2,1fr); }
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .mobile-toggle { display: flex; }
+            .main-content { margin-left: 0; padding: 76px 16px 16px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .col-2, .col-2-eq { grid-template-columns: 1fr; }
+            .badges-grid { grid-template-columns: repeat(2,1fr); }
+            .subjects-grid { grid-template-columns: 1fr; }
+            .ai-metrics { grid-template-columns: 1fr; }
+            .search-wrap { width: 180px; }
+            .timer-face { font-size: 52px; }
+        }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .auth-card { padding: 32px 24px; }
+            .timer-face { font-size: 48px; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+
+<!-- ======== AUTH SCREEN ======== -->
+<div id="authScreen">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">P</div>
+                <h1>PrepMeter</h1>
+                <p>Your Smart Preparation Tracker</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div class="auth-form active" id="loginForm">
+                <div class="auth-error" id="loginError"></div>
+                <div class="auth-success" id="loginSuccess"></div>
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="loginEmail" placeholder="you@example.com">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPass" placeholder="Enter your password" onkeypress="if(event.key==='Enter')handleLogin()">
+                </div>
+                <button class="auth-btn" onclick="handleLogin()">Sign In</button>
+                <div class="auth-divider"><span>or continue with</span></div>
+                <button class="google-btn" onclick="handleGoogleAuth()">
+                    <svg width="18" height="18" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
+                    Continue with Google
+                </button>
+            </div>
+
+            <!-- SIGNUP FORM -->
+            <div class="auth-form" id="signupForm">
+                <div class="auth-error" id="signupError"></div>
+                <div class="auth-success" id="signupSuccess"></div>
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="signupName" placeholder="Your full name">
+                </div>
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="signupEmail" placeholder="you@example.com">
+                </div>
+                <div class="input-group">
+                    <label>Password (min 6 chars)</label>
+                    <input type="password" id="signupPass" placeholder="Create a password">
+                </div>
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="signupConfirm" placeholder="Repeat password" onkeypress="if(event.key==='Enter')handleSignup()">
+                </div>
+                <button class="auth-btn" onclick="handleSignup()">Create Account</button>
+                <div class="auth-divider"><span>or continue with</span></div>
+                <button class="google-btn" onclick="handleGoogleAuth()">
+                    <svg width="18" height="18" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
+                    Continue with Google
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======== APP SCREEN ======== -->
+<div id="appScreen">
+    <button class="mobile-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon">P</div>
+            <div class="logo-text"><h2>PrepMeter</h2><p>Smart Tracker</p></div>
+        </div>
+        <div class="nav-section-title">Main</div>
+        <button class="nav-item active" onclick="go('dashboard',this)"><i class="fas fa-th-large"></i> Dashboard</button>
+        <button class="nav-item" onclick="go('todos',this)"><i class="fas fa-check-square"></i> To-Do List <span class="nav-badge" id="todoBadge">0</span></button>
+        <button class="nav-item" onclick="go('progress',this)"><i class="fas fa-chart-line"></i> Progress</button>
+        <button class="nav-item" onclick="go('ai',this)"><i class="fas fa-robot"></i> AI Analysis</button>
+        <div class="nav-section-title">Tools</div>
+        <button class="nav-item" onclick="go('timer',this)"><i class="fas fa-clock"></i> Study Timer</button>
+        <button class="nav-item" onclick="go('subjects',this)"><i class="fas fa-book"></i> Subjects</button>
+        <button class="nav-item" onclick="go('achievements',this)"><i class="fas fa-trophy"></i> Achievements</button>
+        <div class="nav-section-title">Account</div>
+        <button class="nav-item" onclick="go('settings',this)"><i class="fas fa-cog"></i> Settings</button>
+
+        <div class="sidebar-user">
+            <div class="user-avatar" id="sidebarAvatar"></div>
+            <div class="user-info">
+                <h4 id="sidebarName">User</h4>
+                <p id="sidebarEmail">user@email.com</p>
+            </div>
+            <button class="logout-btn" onclick="logout()" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- ===== DASHBOARD ===== -->
+        <div class="page-section active" id="page-dashboard">
+            <div class="top-bar">
+                <div class="page-title"><h1 id="greetingText">👋 Dashboard</h1><p id="greetingDate"></p></div>
+                <div class="top-actions">
+                    <div class="search-wrap"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search tasks..." oninput="renderTodos()"></div>
+                    <button class="icon-btn" onclick="showNotifications()" title="Notifications"><i class="fas fa-bell"></i><div class="notif-dot" id="notifDot" style="display:none"></div></button>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card c1"><div class="stat-header"><div class="stat-icon"><i class="fas fa-tasks"></i></div><span class="stat-change up" id="sc1">0 total</span></div><div class="stat-value" id="sv1">0</div><div class="stat-label">Total Tasks</div></div>
+                <div class="stat-card c2"><div class="stat-header"><div class="stat-icon"><i class="fas fa-check-circle"></i></div><span class="stat-change up" id="sc2">0%</span></div><div class="stat-value" id="sv2">0</div><div class="stat-label">Completed</div></div>
+                <div class="stat-card c3"><div class="stat-header"><div class="stat-icon"><i class="fas fa-fire"></i></div><span class="stat-change neutral">streak</span></div><div class="stat-value" id="sv3">0</div><div class="stat-label">Day Streak 🔥</div></div>
+                <div class="stat-card c4"><div class="stat-header"><div class="stat-icon"><i class="fas fa-hourglass-half"></i></div><span class="stat-change up">studied</span></div><div class="stat-value" id="sv4">0h</div><div class="stat-label">Study Hours</div></div>
+            </div>
+            <div class="col-2">
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i class="fas fa-clipboard-list"></i>Recent Tasks</div><button class="btn btn-outline" onclick="go('todos',document.querySelectorAll('.nav-item')[1])">View All</button></div>
+                    <div class="todo-list" id="dashTodoList"><div class="empty-msg"><i class="fas fa-inbox"></i><p>No tasks yet</p></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i class="fas fa-bullseye"></i>Overall Progress</div></div>
+                    <div class="ring-wrap">
+                        <div class="ring-svg-wrap">
+                            <svg width="180" height="180" viewBox="0 0 180 180">
+                                <defs>
+                                    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#6c5ce7"/>
+                                        <stop offset="100%" stop-color="#00cec9"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle class="ring-bg" cx="90" cy="90" r="76"/>
+                                <circle class="ring-fill" cx="90" cy="90" r="76" stroke-dasharray="477.5" stroke-dashoffset="477.5" id="ringCircle"/>
+                            </svg>
+                            <div class="ring-text"><div class="ring-pct" id="ringPct">0%</div><div class="ring-lbl">Complete</div></div>
+                        </div>
+                        <div class="ring-stats">
+                            <div class="ring-stat"><span class="ring-stat-label"><span class="dot" style="background:var(--success)"></span>Completed</span><span class="ring-stat-val" id="rsDone">0</span></div>
+                            <div class="ring-stat"><span class="ring-stat-label"><span class="dot" style="background:var(--warning)"></span>Pending</span><span class="ring-stat-val" id="rsPend">0</span></div>
+                            <div class="ring-stat"><span class="ring-stat-label"><span class="dot" style="background:var(--danger)"></span>Overdue</span><span class="ring-stat-val" id="rsOver">0</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-2-eq">
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i class="fas fa-chart-area"></i>Weekly Progress</div><button class="btn btn-outline" onclick="refreshWeekly()">Refresh</button></div>
+                    <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title"><i class="fas fa-chart-pie"></i>Task Distribution</div></div>
+                    <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TODOS ===== -->
+        <div class="page-section" id="page-todos">
+            <div class="top-bar">
+                <div class="page-title"><h1>✅ To-Do List</h1><p>All your preparation tasks</p></div>
+                <div class="top-actions"><button class="btn btn-success" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button></div>
+            </div>
+            <div class="card">
+                <div class="todo-input-row">
+                    <input class="field field-grow" type="text" id="todoText" placeholder="Add a new task..." onkeypress="if(event.key==='Enter')addTodo()">
+                    <select class="field" id="todoPri">
+                        <option value="high">🔴 High</option>
+                        <option value="medium" selected>🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                    </select>
+                    <select class="field" id="todoSub">
+                        <option value="General">📌 General</option>
+                        <option value="Math">📐 Math</option>
+                        <option value="Science">🔬 Science</option>
+                        <option value="English">📖 English</option>
+                        <option value="History">🏛 History</option>
+                        <option value="Coding">💻 Coding</option>
+                        <option value="Other">📝 Other</option>
+                    </select>
+                    <input class="field" type="date" id="todoDue">
+                    <button class="add-btn" onclick="addTodo()"><i class="fas fa-plus"></i></button>
+                </div>
+                <div class="filter-bar">
+                    <button class="filter-chip active" onclick="setFilter('all',this)">All</button>
+                    <button class="filter-chip" onclick="setFilter('active',this)">Active</button>
+                    <button class="filter-chip" onclick="setFilter('done',this)">Done</button>
+                    <button class="filter-chip" onclick="setFilter('high',this)">🔴 High</button>
+                    <button class="filter-chip" onclick="setFilter('medium',this)">🟡 Medium</button>
+                    <button class="filter-chip" onclick="setFilter('low',this)">🟢 Low</button>
+                    <button class="filter-chip" onclick="setFilter('overdue',this)">⚠️ Overdue</button>
+                </div>
+                <div class="todo-list" id="mainTodoList"><div class="empty-msg"><i class="fas fa-inbox"></i><p>Add your first task above!</p></div></div>
+            </div>
+        </div>
+
+        <!-- ===== PROGRESS ===== -->
+        <div class="page-section" id="page-progress">
+            <div class="top-bar"><div class="page-title"><h1>📈 Progress Tracker</h1><p>Visualize your preparation journey</p></div></div>
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+                <div class="stat-card c1"><div class="stat-header"><div class="stat-icon"><i class="fas fa-percentage"></i></div></div><div class="stat-value" id="pgRate">0%</div><div class="stat-label">Completion Rate</div></div>
+                <div class="stat-card c2"><div class="stat-header"><div class="stat-icon"><i class="fas fa-calendar-check"></i></div></div><div class="stat-value" id="pgToday">0</div><div class="stat-label">Completed Today</div></div>
+                <div class="stat-card c3"><div class="stat-header"><div class="stat-icon"><i class="fas fa-bolt"></i></div></div><div class="stat-value" id="pgProd">0%</div><div class="stat-label">Productivity Score</div></div>
+            </div>
+            <div class="col-2-eq">
+                <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-bar"></i>Daily Completions (30 days)</div></div><div class="chart-wrap"><canvas id="dailyChart"></canvas></div></div>
+                <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-line"></i>Cumulative Progress</div></div><div class="chart-wrap"><canvas id="cumulChart"></canvas></div></div>
+            </div>
+            <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-calendar-alt"></i>Study Streak Calendar</div></div><div class="cal-grid" id="streakCal" style="margin-top:14px;"></div></div>
+        </div>
+
+        <!-- ===== AI ANALYSIS ===== -->
+        <div class="page-section" id="page-ai">
+            <div class="top-bar">
+                <div class="page-title"><h1>🤖 AI Analysis</h1><p>Smart insights based on your data</p></div>
+                <button class="btn btn-primary" onclick="runAI()"><i class="fas fa-sync"></i> Re-Analyze</button>
+            </div>
+            <div class="card">
+                <div class="ai-hero">
+                    <div class="ai-orb">🧠</div>
+                    <div>
+                        <h3 style="font-size:20px;font-weight:700;margin-bottom:4px">AI Preparation Analyzer</h3>
+                        <p style="color:#888;font-size:13px">Powered by your personal study data</p>
+                    </div>
+                </div>
+                <div class="ai-metrics">
+                    <div class="ai-metric"><div class="ai-metric-val" style="color:var(--success)" id="aiReady">0%</div><div class="ai-metric-lbl">Exam Readiness</div></div>
+                    <div class="ai-metric"><div class="ai-metric-val" style="color:var(--primary-light)" id="aiConsist">0%</div><div class="ai-metric-lbl">Consistency</div></div>
+                    <div class="ai-metric"><div class="ai-metric-val" style="color:var(--warning)" id="aiGrade">—</div><div class="ai-metric-lbl">Predicted Grade</div></div>
+                </div>
+                <div class="card" style="background:rgba(0,0,0,0.2);margin-bottom:0">
+                    <div class="card-header"><div class="card-title"><i class="fas fa-lightbulb" style="color:var(--warning)"></i>AI Insights</div></div>
+                    <div class="insights-list" id="insightsList">
+                        <div class="insight"><div class="insight-icon" style="background:rgba(108,92,231,0.15);color:var(--primary-light)"><i class="fas fa-info-circle"></i></div><div class="insight-body"><h5>Getting Started</h5><p>Add tasks and complete them to receive personalized AI insights.</p></div></div>
+                    </div>
+                </div>
+                <div class="ai-chat-box">
+                    <h4 style="margin-bottom:14px;font-size:15px"><i class="fas fa-comments" style="color:var(--secondary);margin-right:8px"></i>AI Study Assistant</h4>
+                    <div class="chat-msgs" id="chatMsgs">
+                        <div class="msg"><div class="msg-avatar bot">🤖</div><div class="msg-bubble">Hi! I'm your AI study assistant. Ask me anything about your preparation, study tips, scheduling, or motivation!</div></div>
+                    </div>
+                    <div class="chat-input-row">
+                        <input class="chat-input" type="text" id="chatInput" placeholder="Ask me anything..." onkeypress="if(event.key==='Enter')sendChat()">
+                        <button class="chat-send" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TIMER ===== -->
+        <div class="page-section" id="page-timer">
+            <div class="top-bar"><div class="page-title"><h1>⏱ Study Timer</h1><p>Focus with Pomodoro technique</p></div></div>
+            <div class="card">
+                <div class="timer-center">
+                    <div class="timer-modes">
+                        <button class="mode-btn active" onclick="setMode(25,this)">🍅 Pomodoro (25m)</button>
+                        <button class="mode-btn" onclick="setMode(15,this)">⚡ Short (15m)</button>
+                        <button class="mode-btn" onclick="setMode(5,this)">☕ Break (5m)</button>
+                        <button class="mode-btn" onclick="setMode(45,this)">🎯 Long (45m)</button>
+                        <button class="mode-btn" onclick="setMode(60,this)">🧠 Deep (60m)</button>
+                    </div>
+                    <div class="timer-face" id="timerFace">25:00</div>
+                    <div class="timer-sub" id="timerSub">Ready to focus? Press Start!</div>
+                    <div class="timer-btns">
+                        <button class="btn btn-success" onclick="startTimer()"><i class="fas fa-play"></i> Start</button>
+                        <button class="btn btn-outline" onclick="pauseTimer()"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="btn btn-outline" onclick="resetTimer()"><i class="fas fa-redo"></i> Reset</button>
+                    </div>
+                </div>
+            </div>
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-top:20px">
+                <div class="stat-card c1"><div class="stat-header"><div class="stat-icon"><i class="fas fa-clock"></i></div></div><div class="stat-value" id="tmTotal">0h 0m</div><div class="stat-label">Total Study Time</div></div>
+                <div class="stat-card c2"><div class="stat-header"><div class="stat-icon"><i class="fas fa-check"></i></div></div><div class="stat-value" id="tmSessions">0</div><div class="stat-label">Sessions Done</div></div>
+                <div class="stat-card c3"><div class="stat-header"><div class="stat-icon"><i class="fas fa-star"></i></div></div><div class="stat-value" id="tmBest">0</div><div class="stat-label">Best Day Sessions</div></div>
+            </div>
+        </div>
+
+        <!-- ===== SUBJECTS ===== -->
+        <div class="page-section" id="page-subjects">
+            <div class="top-bar"><div class="page-title"><h1>📚 Subjects</h1><p>Track progress per subject</p></div></div>
+            <div class="card" style="margin-bottom:20px">
+                <div class="card-header"><div class="card-title"><i class="fas fa-graduation-cap"></i>Subject Progress</div></div>
+                <div class="subjects-grid" id="subjectsGrid"><div class="empty-msg"><i class="fas fa-book"></i><p>No subject data yet</p></div></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><div class="card-title"><i class="fas fa-spider"></i>Subject Radar</div></div>
+                <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ===== ACHIEVEMENTS ===== -->
+        <div class="page-section" id="page-achievements">
+            <div class="top-bar"><div class="page-title"><h1>🏆 Achievements</h1><p>Unlock badges by hitting milestones</p></div></div>
+            <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-medal"></i>Your Badges</div><span id="badgeSummary" style="font-size:13px;color:#888">0 / 12 unlocked</span></div><div class="badges-grid" id="badgesGrid"></div></div>
+        </div>
+
+        <!-- ===== SETTINGS ===== -->
+        <div class="page-section" id="page-settings">
+            <div class="top-bar"><div class="page-title"><h1>⚙️ Settings</h1><p>Customize your experience</p></div></div>
+            <div class="card">
+                <div class="setting-group">
+                    <h3><i class="fas fa-user" style="margin-right:8px"></i>Profile</h3>
+                    <div class="setting-row">
+                        <div class="setting-label"><h4>Display Name</h4><p>Shown on dashboard</p></div>
+                        <input class="field" id="settingName" placeholder="Your name" onchange="updateName()" style="width:180px">
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3><i class="fas fa-bell" style="margin-right:8px"></i>Notifications</h3>
+                    <div class="setting-row">
+                        <div class="setting-label"><h4>Timer Sound</h4><p>Alert when timer ends</p></div>
+                        <button class="toggle on" id="tglSound" onclick="toggleSetting(this,'sound')"></button>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label"><h4>Overdue Highlighting</h4><p>Highlight overdue tasks</p></div>
+                        <button class="toggle on" id="tglOver" onclick="toggleSetting(this,'overdue')"></button>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3><i class="fas fa-database" style="margin-right:8px"></i>Data</h3>
+                    <div class="setting-row">
+                        <div class="setting-label"><h4>Export Data</h4><p>Download as JSON backup</p></div>
+                        <button class="btn btn-success" onclick="exportJSON()"><i class="fas fa-download"></i> Export</button>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label"><h4>Clear All Data</h4><p>Cannot be undone</p></div>
+                        <button class="btn btn-danger" onclick="clearData()"><i class="fas fa-trash"></i> Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   PREPMETER - COMPLETE JAVASCRIPT
+   ============================================================ */
+
+// ─── STATE ────────────────────────────────────────────────
+let S = {
+    user: null,
+    todos: [],
+    streak: 0,
+    studyMins: 0,
+    sessions: 0,
+    bestDaySessions: 0,
+    daily: {},          // {date: count}
+    settings: { sound: true, overdue: true },
+    weeklyCache: [0,0,0,0,0,0,0]
+};
+
+function save() {
+    if (!S.user) return;
+    try { localStorage.setItem('pm_' + S.user.id, JSON.stringify(S)); } catch(e){}
+}
+
+function load(userId) {
+    try {
+        const raw = localStorage.getItem('pm_' + userId);
+        if (raw) {
+            const d = JSON.parse(raw);
+            S = { ...S, ...d, user: S.user };
+        }
+    } catch(e) { console.warn('Load error', e); }
+}
+
+// ─── AUTH ─────────────────────────────────────────────────
+let users = {};
+function loadUsers() {
+    try { users = JSON.parse(localStorage.getItem('pm_users') || '{}'); } catch(e) {}
+}
+function saveUsers() {
+    try { localStorage.setItem('pm_users', JSON.stringify(users)); } catch(e) {}
+}
+
+// Session check
+function checkSession() {
+    try {
+        const sess = JSON.parse(localStorage.getItem('pm_session') || 'null');
+        if (sess && sess.id) {
+            S.user = sess;
+            load(sess.id);
+            enterApp();
+        }
+    } catch(e) {}
+}
+
+function switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='signup')));
+    document.getElementById('loginForm').classList.toggle('active', tab==='login');
+    document.getElementById('signupForm').classList.toggle('active', tab==='signup');
+}
+
+function showAuthError(formId, msg) {
+    const el = document.getElementById(formId + 'Error');
+    el.textContent = msg; el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+}
+function showAuthSuccess(formId, msg) {
+    const el = document.getElementById(formId + 'Success');
+    el.textContent = msg; el.style.display = 'block';
+}
+
+function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    document.getElementById('loginError').style.display = 'none';
+
+    if (!email || !pass) return showAuthError('login', 'Please fill in all fields.');
+    if (!email.includes('@')) return showAuthError('login', 'Enter a valid email.');
+
+    loadUsers();
+    const key = email.toLowerCase();
+    if (!users[key]) return showAuthError('login', 'Account not found. Please sign up.');
+    if (users[key].pass !== btoa(pass)) return showAuthError('login', 'Incorrect password.');
+
+    S.user = { id: key, name: users[key].name, email: key, photo: null, provider: 'email' };
+    localStorage.setItem('pm_session', JSON.stringify(S.user));
+    load(key);
+    enterApp();
+    toast('Welcome back, ' + S.user.name + '! 👋', 'success');
+}
+
+function handleSignup() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const pass = document.getElementById('signupPass').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    document.getElementById('signupError').style.display = 'none';
+
+    if (!name || !email || !pass || !confirm) return showAuthError('signup', 'Please fill in all fields.');
+    if (!email.includes('@')) return showAuthError('signup', 'Enter a valid email.');
+    if (pass.length < 6) return showAuthError('signup', 'Password must be at least 6 characters.');
+    if (pass !== confirm) return showAuthError('signup', 'Passwords do not match.');
+
+    loadUsers();
+    const key = email.toLowerCase();
+    if (users[key]) return showAuthError('signup', 'Account already exists. Please login.');
+
+    users[key] = { name, pass: btoa(pass), created: new Date().toISOString() };
+    saveUsers();
+
+    S.user = { id: key, name, email: key, photo: null, provider: 'email' };
+    localStorage.setItem('pm_session', JSON.stringify(S.user));
+    load(key);
+    enterApp();
+    toast('Account created! Welcome, ' + name + '! 🎉', 'success');
+}
+
+// Google Auth (using Google Identity Services)
+function handleGoogleAuth() {
+    // Prompt Google One Tap / Sign-in
+    if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.prompt();
+    } else {
+        // Fallback: simulate Google login for demo
+        googleDemoLogin();
+    }
+}
+
+// Google callback
+function onGoogleLogin(response) {
+    try {
+        const payload = parseJwt(response.credential);
+        const user = {
+            id: 'g_' + payload.sub,
+            name: payload.name,
+            email: payload.email,
+            photo: payload.picture,
+            provider: 'google'
+        };
+        S.user = user;
+        localStorage.setItem('pm_session', JSON.stringify(user));
+        load(user.id);
+        enterApp();
+        toast('Welcome, ' + user.name + '! 🎉', 'success');
+    } catch(e) {
+        toast('Google login failed. Please try email login.', 'error');
+    }
+}
+
+function parseJwt(token) {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+}
+
+// Demo fallback Google login (for localhost/demo)
+function googleDemoLogin() {
+    const demoName = prompt('🚀 Google Auth Demo\n\nEnter your name (simulating Google login):') || 'Google User';
+    const demoEmail = 'google_' + Date.now() + '@gmail.com';
+    const user = {
+        id: 'g_' + Date.now(),
+        name: demoName,
+        email: demoEmail,
+        photo: null,
+        provider: 'google'
+    };
+    S.user = user;
+    localStorage.setItem('pm_session', JSON.stringify(user));
+    load(user.id);
+    enterApp();
+    toast('Welcome, ' + demoName + '! 🎉', 'success');
+}
+
+function logout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    localStorage.removeItem('pm_session');
+    S = { user: null, todos: [], streak: 0, studyMins: 0, sessions: 0, bestDaySessions: 0, daily: {}, settings: { sound: true, overdue: true }, weeklyCache: [0,0,0,0,0,0,0] };
+    document.getElementById('appScreen').style.display = 'none';
+    document.getElementById('authScreen').style.display = 'flex';
+    // Clear charts
+    Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+    charts = {};
+    toast('Logged out successfully.', 'info');
+}
+
+function enterApp() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    updateUserUI();
+    updateGreeting();
+    renderTodos();
+    updateDashboard();
+    initCharts();
+    updateTimerUI();
+    buildBadges();
+    document.getElementById('settingName').value = S.user.name;
+    document.getElementById('todoDue').valueAsDate = new Date();
+    // Setup Google
+    setupGoogle();
+}
+
+function setupGoogle() {
+    // Replace YOUR_GOOGLE_CLIENT_ID with actual client ID from Google Cloud Console
+    const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+    if (typeof google !== 'undefined' && google.accounts && CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+        google.accounts.id.initialize({
+            client_id: CLIENT_ID,
+            callback: onGoogleLogin
+        });
+    }
+}
+
+function updateUserUI() {
+    if (!S.user) return;
+    document.getElementById('sidebarName').textContent = S.user.name;
+    document.getElementById('sidebarEmail').textContent = S.user.email;
+    const av = document.getElementById('sidebarAvatar');
+    if (S.user.photo) {
+        av.innerHTML = `<img src="${S.user.photo}" alt="avatar">`;
+    } else {
+        av.textContent = S.user.name.charAt(0).toUpperCase();
+    }
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function go(page, el) {
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if (el) el.classList.add('active');
+    closeSidebar();
+
+    if (page === 'progress') updateProgress();
+    if (page === 'subjects') updateSubjects();
+    if (page === 'achievements') buildBadges();
+    if (page === 'ai') runAI();
+    if (page === 'dashboard') updateDashboard();
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('active');
+}
+
+// ─── GREETING ─────────────────────────────────────────────
+function updateGreeting() {
+    const h = new Date().getHours();
+    const greet = h < 12 ? '🌅 Good Morning' : h < 17 ? '☀️ Good Afternoon' : '🌙 Good Evening';
+    document.getElementById('greetingText').textContent = greet + ', ' + (S.user ? S.user.name : '') + '!';
+    document.getElementById('greetingDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+
+// ─── TODOS ────────────────────────────────────────────────
+let currentFilter = 'all';
+
+function addTodo() {
+    const text = document.getElementById('todoText').value.trim();
+    if (!text) { toast('Please enter a task!', 'error'); return; }
+    const todo = {
+        id: Date.now(),
+        text,
+        priority: document.getElementById('todoPri').value,
+        subject: document.getElementById('todoSub').value,
+        due: document.getElementById('todoDue').value,
+        done: false,
+        created: new Date().toISOString()
+    };
+    S.todos.unshift(todo);
+    document.getElementById('todoText').value = '';
+    save();
+    renderTodos();
+    updateDashboard();
+    toast('Task added!', 'success');
+}
+
+function toggleTodo(id) {
+    const t = S.todos.find(t => t.id === id);
+    if (!t) return;
+    t.done = !t.done;
+    if (t.done) {
+        const today = todayKey();
+        S.daily[today] = (S.daily[today] || 0) + 1;
+        calcStreak();
+    }
+    save();
+    renderTodos();
+    updateDashboard();
+    if (t.done) toast('✅ Task completed!', 'success');
+}
+
+function deleteTodo(id) {
+    S.todos = S.todos.filter(t => t.id !== id);
+    save();
+    renderTodos();
+    updateDashboard();
+    toast('Task deleted', 'info');
+}
+
+function setFilter(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    renderTodos();
+}
+
+function renderTodos() {
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    let list = S.todos.filter(t => {
+        if (search && !t.text.toLowerCase().includes(search)) return false;
+        if (currentFilter === 'active') return !t.done;
+        if (currentFilter === 'done') return t.done;
+        if (currentFilter === 'high') return t.priority === 'high';
+        if (currentFilter === 'medium') return t.priority === 'medium';
+        if (currentFilter === 'low') return t.priority === 'low';
+        if (currentFilter === 'overdue') return !t.done && t.due && new Date(t.due) < today;
+        return true;
+    });
+
+    const html = list.length ? list.map(t => todoHTML(t)).join('') : `<div class="empty-msg"><i class="fas fa-inbox"></i><p>No tasks found</p></div>`;
+    const mainList = document.getElementById('mainTodoList');
+    const dashList = document.getElementById('dashTodoList');
+    if (mainList) mainList.innerHTML = html;
+
+    // Dashboard shows top 5 undone
+    const dashItems = S.todos.filter(t => !t.done).slice(0,5);
+    if (dashList) dashList.innerHTML = dashItems.length ? dashItems.map(t => todoHTML(t)).join('') : `<div class="empty-msg"><i class="fas fa-inbox"></i><p>All tasks complete!</p></div>`;
+
+    const active = S.todos.filter(t => !t.done).length;
+    const badge = document.getElementById('todoBadge');
+    if (badge) { badge.textContent = active; badge.style.display = active ? 'inline-block' : 'none'; }
+}
+
+function todoHTML(t) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdue = !t.done && t.due && new Date(t.due) < today;
+    return `
+    <div class="todo-item ${t.done?'done':''} ${overdue&&S.settings.overdue?'overdue':''}">
+        <div class="check-box ${t.done?'checked':''}" onclick="toggleTodo(${t.id})">${t.done?'✓':''}</div>
+        <div class="todo-body">
+            <div class="todo-text">${escHtml(t.text)}</div>
+            <div class="todo-chips">
+                <span class="chip chip-${t.priority}">${t.priority}</span>
+                <span class="chip chip-subject">${t.subject}</span>
+                ${t.due ? `<span class="chip ${overdue?'chip-overdue':'chip-date'}"><i class="fas fa-calendar" style="margin-right:3px;font-size:9px"></i>${t.due}</span>` : ''}
+                ${overdue ? '<span class="chip chip-overdue">OVERDUE</span>' : ''}
+            </div>
+        </div>
+        <button class="del-btn" onclick="deleteTodo(${t.id})"><i class="fas fa-trash"></i></button>
+    </div>`;
+}
+
+function escHtml(s) {
+    const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────
+function updateDashboard() {
+    if (!document.getElementById('appScreen') || document.getElementById('appScreen').style.display === 'none') return;
+    const total = S.todos.length;
+    const done = S.todos.filter(t => t.done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdue = S.todos.filter(t => !t.done && t.due && new Date(t.due) < today).length;
+
+    // Stats
+    setText('sv1', total);
+    setText('sc1', total + ' tasks');
+    setText('sv2', done);
+    setText('sc2', pct + '%');
+    setText('sv3', S.streak);
+    setText('sv4', Math.floor(S.studyMins/60) + 'h');
+
+    // Ring
+    setText('ringPct', pct + '%');
+    setText('rsDone', done);
+    setText('rsPend', total - done);
+    setText('rsOver', overdue);
+    const circ = 477.5;
+    const el = document.getElementById('ringCircle');
+    if (el) el.style.strokeDashoffset = circ - (pct/100)*circ;
+
+    // Notif dot
+    const nd = document.getElementById('notifDot');
+    if (nd) nd.style.display = (overdue > 0 || S.todos.some(t => t.priority==='high'&&!t.done)) ? 'block' : 'none';
+
+    updateChartsData();
+    renderTodos();
+}
+
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+
+// ─── STREAK ───────────────────────────────────────────────
+function todayKey() {
+    return new Date().toISOString().split('T')[0];
+}
+
+function calcStreak() {
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+        const k = d.toISOString().split('T')[0];
+        if (S.daily[k] && S.daily[k] > 0) {
+            streak++;
+            d.setDate(d.getDate() - 1);
+        } else break;
+    }
+    S.streak = streak;
+}
+
+// ─── CHARTS ───────────────────────────────────────────────
+let charts = {};
+
+function initCharts() {
+    Chart.defaults.color = '#888';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
+
+    const baseScales = {
+        x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+        y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, beginAtZero: true }
+    };
+
+    // Weekly line chart
+    if (document.getElementById('weeklyChart')) {
+        if (charts.weekly) charts.weekly.destroy();
+        charts.weekly = new Chart(document.getElementById('weeklyChart'), {
+            type: 'line',
+            data: {
+                labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                datasets: [{
+                    label: 'Tasks Completed',
+                    data: getWeeklyData(),
+                    borderColor: '#6c5ce7',
+                    backgroundColor: 'rgba(108,92,231,0.1)',
+                    fill: true, tension: 0.4, borderWidth: 2,
+                    pointBackgroundColor: '#6c5ce7', pointRadius: 4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: baseScales }
+        });
+    }
+
+    // Distribution doughnut
+    if (document.getElementById('distChart')) {
+        if (charts.dist) charts.dist.destroy();
+        charts.dist = new Chart(document.getElementById('distChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['High','Medium','Low'],
+                datasets: [{ data: [0,0,0], backgroundColor: ['#e17055','#fdcb6e','#00b894'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { labels: { color: '#aaa', padding: 14, font: { size: 12 } } } }
+            }
+        });
+    }
+
+    updateChartsData();
+}
+
+function getWeeklyData() {
+    const data = [];
+    const today = new Date();
+    const dow = today.getDay(); // 0=Sun
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((dow + 6) % 7));
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const k = d.toISOString().split('T')[0];
+        data.push(S.daily[k] || 0);
+    }
+    return data;
+}
+
+function refreshWeekly() {
+    if (charts.weekly) {
+        charts.weekly.data.datasets[0].data = getWeeklyData();
+        charts.weekly.update();
+    }
+}
+
+function updateChartsData() {
+    if (charts.dist) {
+        const h = S.todos.filter(t => t.priority==='high').length;
+        const m = S.todos.filter(t => t.priority==='medium').length;
+        const l = S.todos.filter(t => t.priority==='low').length;
+        charts.dist.data.datasets[0].data = [h, m, l];
+        charts.dist.update('none');
+    }
+    if (charts.weekly) {
+        charts.weekly.data.datasets[0].data = getWeeklyData();
+        charts.weekly.update('none');
+    }
+}
+
+// ─── PROGRESS PAGE ────────────────────────────────────────
+function updateProgress() {
+    const total = S.todos.length;
+    const done = S.todos.filter(t => t.done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const todayDone = S.daily[todayKey()] || 0;
+
+    setText('pgRate', pct + '%');
+    setText('pgToday', todayDone);
+
+    const streakF = Math.min(S.streak * 5, 30);
+    const compF = pct * 0.5;
+    const timeF = Math.min(S.studyMins / 10, 20);
+    setText('pgProd', Math.min(Math.round(streakF + compF + timeF), 100) + '%');
+
+    buildDailyChart();
+    buildCumulChart();
+    buildStreakCal();
+}
+
+function buildDailyChart() {
+    const labels = [], data = [];
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const k = d.toISOString().split('T')[0];
+        labels.push(d.getDate() + '/' + (d.getMonth()+1));
+        data.push(S.daily[k] || 0);
+    }
+    const ctx = document.getElementById('dailyChart');
+    if (!ctx) return;
+    if (charts.daily) charts.daily.destroy();
+    charts.daily = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Completed', data, backgroundColor: 'rgba(108,92,231,0.6)', borderRadius: 3 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#666', maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, beginAtZero: true }
+            }
+        }
+    });
+}
+
+function buildCumulChart() {
+    const labels = [], data = [];
+    let sum = 0;
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const k = d.toISOString().split('T')[0];
+        sum += (S.daily[k] || 0);
+        labels.push(d.getDate() + '/' + (d.getMonth()+1));
+        data.push(sum);
+    }
+    const ctx = document.getElementById('cumulChart');
+    if (!ctx) return;
+    if (charts.cumul) charts.cumul.destroy();
+    charts.cumul = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Cumulative', data, borderColor: '#00cec9', backgroundColor: 'rgba(0,206,201,0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 2 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#666', maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, beginAtZero: true }
+            }
+        }
+    });
+}
+
+function buildStreakCal() {
+    const cal = document.getElementById('streakCal');
+    if (!cal) return;
+    cal.innerHTML = '';
+    const today = new Date();
+    for (let i = 34; i >= 0; i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        const k = d.toISOString().split('T')[0];
+        const on = S.daily[k] && S.daily[k] > 0;
+        const isToday = i === 0;
+        cal.innerHTML += `<div class="cal-day ${on?'on':''} ${isToday?'today':''}" title="${k}">${d.getDate()}</div>`;
+    }
+}
+
+// ─── SUBJECTS ─────────────────────────────────────────────
+function updateSubjects() {
+    const subs = ['Math','Science','English','History','Coding','General','Other'];
+    const colors = ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#00b894','#a29bfe','#e17055'];
+    const grid = document.getElementById('subjectsGrid');
+    if (!grid) return;
+
+    const rows = [];
+    const radarData = [];
+
+    subs.forEach((s, i) => {
+        const items = S.todos.filter(t => t.subject === s);
+        const done = items.filter(t => t.done).length;
+        const pct = items.length ? Math.round(done/items.length*100) : 0;
+        radarData.push(pct);
+        if (items.length) {
+            rows.push(`
+            <div class="sub-card">
+                <div class="sub-header"><span class="sub-name">${s}</span><span class="sub-pct">${pct}%</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${colors[i]}"></div></div>
+                <div class="sub-meta">${done}/${items.length} tasks completed</div>
+            </div>`);
+        }
+    });
+
+    grid.innerHTML = rows.length ? rows.join('') : `<div class="empty-msg" style="grid-column:1/-1"><i class="fas fa-book"></i><p>No subject data yet</p></div>`;
+
+    // Radar chart
+    const ctx = document.getElementById('radarChart');
+    if (!ctx) return;
+    if (charts.radar) charts.radar.destroy();
+    charts.radar = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: subs,
+            datasets: [{ label: 'Progress %', data: radarData, backgroundColor: 'rgba(108,92,231,0.2)', borderColor: '#6c5ce7', borderWidth: 2, pointBackgroundColor: '#6c5ce7', pointRadius: 4 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { r: { ticks: { color: '#888', backdropColor: 'transparent', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' }, pointLabels: { color: '#aaa', font: { size: 11 } }, min: 0, max: 100 } }
+        }
+    });
+}
+
+// ─── AI ANALYSIS ──────────────────────────────────────────
+function runAI() {
+    const total = S.todos.length;
+    const done = S.todos.filter(t => t.done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+
+    // Consistency (active days last 7)
+    let activeDays = 0;
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate()-i);
+        if (S.daily[d.toISOString().split('T')[0]] > 0) activeDays++;
+    }
+    const consistency = Math.round(activeDays/7*100);
+    const readiness = Math.min(pct*0.6 + Math.min(S.streak*3,25) + consistency*0.15, 100);
+
+    setText('aiReady', Math.round(readiness) + '%');
+    setText('aiConsist', consistency + '%');
+
+    const avg = (readiness + consistency + pct) / 3;
+    const grade = avg >= 90 ? 'A+' : avg >= 80 ? 'A' : avg >= 70 ? 'B+' : avg >= 60 ? 'B' : avg >= 50 ? 'C' : avg >= 40 ? 'D' : 'F';
+    setText('aiGrade', grade);
+
+    buildInsights(total, done, pct, consistency, readiness);
+}
+
+function buildInsights(total, done, pct, consistency, readiness) {
+    const ins = [];
+    const high = S.todos.filter(t => t.priority==='high'&&!t.done).length;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdue = S.todos.filter(t => !t.done && t.due && new Date(t.due) < today).length;
+
+    if (!total) {
+        ins.push({ icon:'fa-plus-circle', c:'var(--primary-light)', bg:'rgba(108,92,231,0.15)', title:'Get Started', body:'Add your first tasks to get personalized AI insights.' });
+    } else {
+        if (pct >= 80) ins.push({ icon:'fa-trophy', c:'var(--success)', bg:'rgba(0,184,148,0.15)', title:'Outstanding Progress! 🏆', body:`${pct}% complete! You're crushing it. Keep the momentum going strong!` });
+        else if (pct >= 50) ins.push({ icon:'fa-chart-line', c:'var(--warning)', bg:'rgba(253,203,110,0.15)', title:'Good Progress 📈', body:`${pct}% done. You're past halfway! Focus on high-priority tasks next.` });
+        else ins.push({ icon:'fa-exclamation-triangle', c:'var(--danger)', bg:'rgba(225,112,85,0.15)', title:'Need More Effort ⚡', body:`Only ${pct}% complete. Set small daily targets and build your habit.` });
+
+        if (high) ins.push({ icon:'fa-fire', c:'var(--danger)', bg:'rgba(225,112,85,0.15)', title:`${high} High-Priority Pending 🔥`, body:'Tackle these first! High-priority tasks have the biggest impact on your score.' });
+        if (overdue) ins.push({ icon:'fa-clock', c:'var(--danger)', bg:'rgba(225,112,85,0.15)', title:`${overdue} Overdue Tasks! ⚠️`, body:'You have tasks past their deadline. Address these immediately or reschedule.' });
+
+        if (consistency >= 80) ins.push({ icon:'fa-calendar-check', c:'var(--success)', bg:'rgba(0,184,148,0.15)', title:'Amazing Consistency! 💪', body:`Active ${Math.round(consistency/100*7)} of the last 7 days. Regular study is the key to long-term success!` });
+        else if (consistency < 40) ins.push({ icon:'fa-calendar-times', c:'var(--warning)', bg:'rgba(253,203,110,0.15)', title:'Build Daily Habit 📅', body:'Studying a little every day beats cramming. Try just 20 minutes daily.' });
+
+        if (S.streak >= 7) ins.push({ icon:'fa-fire', c:'var(--warning)', bg:'rgba(253,203,110,0.15)', title:`${S.streak}-Day Streak! 🔥`, body:'Incredible streak! You\'re building powerful study habits. Don\'t break it!' });
+
+        // Weakest subject
+        const subs = ['Math','Science','English','History','Coding','General','Other'];
+        let weakSub = null, weakPct = 100;
+        subs.forEach(s => {
+            const items = S.todos.filter(t => t.subject===s);
+            if (items.length) {
+                const p = items.filter(t=>t.done).length / items.length * 100;
+                if (p < weakPct) { weakPct = p; weakSub = s; }
+            }
+        });
+        if (weakSub && weakPct < 50) ins.push({ icon:'fa-book', c:'var(--accent)', bg:'rgba(253,121,168,0.15)', title:`Focus on ${weakSub} 📚`, body:`${weakSub} is at ${Math.round(weakPct)}% — your weakest area. Allocate more study time here.` });
+
+        if (S.studyMins > 0) ins.push({ icon:'fa-hourglass-half', c:'var(--secondary)', bg:'rgba(0,206,201,0.15)', title:`${Math.floor(S.studyMins/60)}h ${S.studyMins%60}m Total Study Time`, body:'Great use of the study timer! Timed sessions improve focus and productivity.' });
+    }
+
+    const el = document.getElementById('insightsList');
+    if (el) el.innerHTML = ins.map(i => `
+        <div class="insight">
+            <div class="insight-icon" style="background:${i.bg};color:${i.c}"><i class="fas ${i.icon}"></i></div>
+            <div class="insight-body"><h5>${i.title}</h5><p>${i.body}</p></div>
+        </div>`).join('');
+}
+
+// ─── AI CHAT ──────────────────────────────────────────────
+function sendChat() {
+    const input = document.getElementById('chatInput');
+    const q = input.value.trim();
+    if (!q) return;
+
+    const msgs = document.getElementById('chatMsgs');
+    msgs.innerHTML += `<div class="msg"><div class="msg-avatar usr">👤</div><div class="msg-bubble">${escHtml(q)}</div></div>`;
+    msgs.innerHTML += `<div class="msg" id="typing"><div class="msg-avatar bot">🤖</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+    input.value = '';
+
+    setTimeout(() => {
+        document.getElementById('typing')?.remove();
+        msgs.innerHTML += `<div class="msg"><div class="msg-avatar bot">🤖</div><div class="msg-bubble">${aiReply(q)}</div></div>`;
+        msgs.scrollTop = msgs.scrollHeight;
+    }, 800 + Math.random() * 1200);
+}
+
+function aiReply(q) {
+    const lq = q.toLowerCase();
+    const total = S.todos.length, done = S.todos.filter(t=>t.done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const high = S.todos.filter(t=>t.priority==='high'&&!t.done).length;
+
+    if (/hi|hello|hey|hola/.test(lq)) return `👋 Hello! I'm your AI study assistant. I can help with:<br>• <b>"How am I doing?"</b> — progress summary<br>• <b>"Give me tips"</b> — study advice<br>• <b>"Plan my day"</b> — schedule help<br>• <b>"Motivate me"</b> — get inspired<br>• <b>"Weak subjects"</b> — subject analysis`;
+
+    if (/progress|how am i|status|overview/.test(lq)) return `📊 <b>Your Progress:</b><br>✅ ${done}/${total} tasks (${pct}%)<br>🔥 ${S.streak}-day streak<br>⏱ ${Math.floor(S.studyMins/60)}h ${S.studyMins%60}m studied<br>🔴 ${high} high-priority pending<br><br>${pct>=70?'🎉 You\'re doing great!':pct>=40?'💪 Keep pushing!':'⚡ Time to step it up!'}`;
+
+    if (/tip|advice|suggest|how to study|improve/.test(lq)) {
+        const tips = [
+            '🎯 <b>Pomodoro Technique:</b> 25 min focus → 5 min break. Repeat 4x then take a longer break. Proven to boost productivity!',
+            '✍️ <b>Active Recall:</b> Close your book, write everything you remember. This is 3x more effective than re-reading.',
+            '🔄 <b>Spaced Repetition:</b> Review material at 1 day → 3 days → 7 days → 21 days intervals for lasting memory.',
+            '🌅 <b>Study in the morning:</b> Cognitive performance peaks in the morning. Tackle hard topics first!',
+            '📵 <b>Phone-free sessions:</b> Even having your phone visible reduces performance by 20%. Put it in another room.',
+            '💤 <b>Sleep matters:</b> 7-8 hours of sleep consolidates memory. Never sacrifice sleep for cramming.',
+            '🎵 <b>Lo-fi music:</b> Instrumental music at ~60bpm can enhance focus without distracting your brain.',
+            '📝 <b>Cornell Notes:</b> Divide page into notes, cues, summary. One of the most effective note-taking systems.'
+        ];
+        return tips[Math.floor(Math.random()*tips.length)];
+    }
+
+    if (/schedule|plan|timetable|routine|day/.test(lq)) return `📅 <b>Recommended Daily Schedule:</b><br><br>⏰ 8-10am — <b>Hardest Subject</b> (peak focus)<br>⏰ 10:30-12 — <b>Practice Problems</b><br>☀️ 12-1pm — Lunch & Rest<br>⏰ 2-4pm — <b>Medium Priority Tasks</b><br>⏰ 5-6pm — <b>Review Today's Topics</b><br>🌙 8-9pm — <b>Light Reading</b><br><br>💡 You have <b>${high} high-priority tasks</b> — do those during peak morning hours!`;
+
+    if (/motivat|lazy|can't|tired|demotivat|quit/.test(lq)) {
+        const quotes = [
+            '💪 <b>"The expert was once a beginner."</b> You\'ve completed <b>' + done + ' tasks</b>. That\'s real progress!',
+            '🔥 <b>"Small daily improvements lead to stunning results."</b> Just complete ONE task right now. Start the momentum!',
+            '🌟 <b>"The pain of discipline is far less than the pain of regret."</b> Your future self is counting on you!',
+            '⚡ Set a timer for just 10 minutes. Tell yourself you\'ll study for 10 minutes only. Once you start, you\'ll keep going — it\'s called the Zeigarnik effect!'
+        ];
+        return quotes[Math.floor(Math.random()*quotes.length)];
+    }
+
+    if (/weak|worst|subject|fail/.test(lq)) {
+        const subs = ['Math','Science','English','History','Coding','General','Other'];
+        let rows = '';
+        subs.forEach(s => {
+            const items = S.todos.filter(t=>t.subject===s);
+            if (items.length) {
+                const p = Math.round(items.filter(t=>t.done).length/items.length*100);
+                rows += `${p>=70?'✅':p>=40?'🟡':'🔴'} <b>${s}:</b> ${p}%<br>`;
+            }
+        });
+        return rows ? `📚 <b>Subject Analysis:</b><br><br>${rows}` : '📚 No subject data yet. Add tasks with different subjects!';
+    }
+
+    if (/streak|fire|days/.test(lq)) return `🔥 Your current streak: <b>${S.streak} days!</b><br><br>${S.streak>=14?'Legendary! 🏆':S.streak>=7?'Excellent consistency! 💪':S.streak>=3?'Good start! Keep going! 🚀':'Build your streak by completing at least one task every day!'}`;
+
+    if (/overdue|late|deadline/.test(lq)) {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const ov = S.todos.filter(t=>!t.done&&t.due&&new Date(t.due)<today);
+        return ov.length ? `⚠️ You have <b>${ov.length} overdue tasks:</b><br><br>${ov.slice(0,5).map(t=>`• ${t.text}`).join('<br>')}<br><br>Handle these first!` : '✅ No overdue tasks. Great job staying on top of deadlines!';
+    }
+
+    if (/time|hour|study/.test(lq)) return `⏱ <b>Study Statistics:</b><br>Total time: <b>${Math.floor(S.studyMins/60)}h ${S.studyMins%60}m</b><br>Sessions: <b>${S.sessions}</b><br><br>💡 Research shows 2-4 hours of focused daily study is optimal. Use the Study Timer for better tracking!`;
+
+    const defaults = [
+        `💡 Based on your data: <b>${pct}% complete</b>, <b>${S.streak}-day streak</b>. Try asking: "Give me tips", "Plan my day", or "Motivate me"!`,
+        `🤔 I'm here to help! Try: "How am I doing?", "What are my weak subjects?", or "Give me study advice"!`,
+        `📊 Quick summary: ${done}/${total} tasks done, ${S.streak}-day streak, ${high} high-priority tasks pending. What would you like to know?`
+    ];
+    return defaults[Math.floor(Math.random()*defaults.length)];
+}
+
+// ─── TIMER ────────────────────────────────────────────────
+let timerSecs = 1500, timerRunning = false, timerMode = 25, timerInterval = null;
+
+function setMode(mins, el) {
+    timerMode = mins;
+    timerSecs = mins * 60;
+    clearInterval(timerInterval);
+    timerRunning = false;
+    updateTimerUI();
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const subs = {25:'🍅 Pomodoro — Stay focused!',15:'⚡ Short burst — Quick win!',5:'☕ Take a breather...',45:'🎯 Deep work — You got this!',60:'🧠 Flow state — Full immersion!'};
+    setText('timerSub', subs[mins] || 'Study mode active');
+}
+
+function startTimer() {
+    if (timerRunning) return;
+    timerRunning = true;
+    timerInterval = setInterval(() => {
+        timerSecs--;
+        updateTimerUI();
+        if (timerSecs <= 0) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            S.studyMins += timerMode;
+            S.sessions++;
+            const today = todayKey();
+            if (!S.bestDaySessions || S.sessions > S.bestDaySessions) S.bestDaySessions = S.sessions;
+            save();
+            updateTimerUI();
+            updateDashboard();
+            checkAchievements();
+            if (S.settings.sound) playBeep();
+            timerSecs = timerMode * 60;
+            updateTimerUI();
+            toast('⏰ Session complete! +' + timerMode + ' minutes logged 🎉', 'success');
+        }
+    }, 1000);
+    setText('timerSub', '🔥 In session — Stay strong!');
+}
+
+function pauseTimer() {
+    clearInterval(timerInterval); timerRunning = false;
+    setText('timerSub', '⏸ Paused — Resume when ready!');
+}
+function resetTimer() {
+    clearInterval(timerInterval); timerRunning = false;
+    timerSecs = timerMode * 60; updateTimerUI();
+    setText('timerSub', 'Ready to focus? Press Start!');
+}
+function updateTimerUI() {
+    const m = Math.floor(timerSecs/60), s = timerSecs%60;
+    setText('timerFace', String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'));
+    setText('tmTotal', Math.floor(S.studyMins/60) + 'h ' + (S.studyMins%60) + 'm');
+    setText('tmSessions', S.sessions);
+    setText('tmBest', S.bestDaySessions || 0);
+}
+
+function playBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 800; o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
+        o.start(ctx.currentTime); o.stop(ctx.currentTime + 1);
+    } catch(e) {}
+}
+
+// ─── ACHIEVEMENTS ─────────────────────────────────────────
+function buildBadges() {
+    const total = S.todos.length;
+    const done = S.todos.filter(t=>t.done).length;
+    const BADGES = [
+        { icon:'🌱', name:'First Step', desc:'Add 1 task', ok: total>=1 },
+        { icon:'✅', name:'Starter', desc:'Complete 1 task', ok: done>=1 },
+        { icon:'🔥', name:'On Fire', desc:'3-day streak', ok: S.streak>=3 },
+        { icon:'⚡', name:'Productive', desc:'Complete 5 tasks', ok: done>=5 },
+        { icon:'📚', name:'Bookworm', desc:'Add 10 tasks', ok: total>=10 },
+        { icon:'🏆', name:'Champion', desc:'Complete 10 tasks', ok: done>=10 },
+        { icon:'💎', name:'Consistent', desc:'7-day streak', ok: S.streak>=7 },
+        { icon:'⏱', name:'Timer Pro', desc:'5 timer sessions', ok: S.sessions>=5 },
+        { icon:'🎯', name:'Focused', desc:'1 hour studied', ok: S.studyMins>=60 },
+        { icon:'🌟', name:'Superstar', desc:'Complete 25 tasks', ok: done>=25 },
+        { icon:'👑', name:'Master', desc:'14-day streak', ok: S.streak>=14 },
+        { icon:'🚀', name:'Unstoppable', desc:'Complete 50 tasks', ok: done>=50 },
+    ];
+    const unlocked = BADGES.filter(b=>b.ok).length;
+    setText('badgeSummary', unlocked + ' / ' + BADGES.length + ' unlocked');
+    const grid = document.getElementById('badgesGrid');
+    if (grid) grid.innerHTML = BADGES.map(b => `
+        <div class="badge ${b.ok?'unlocked':'locked'}">
+            <div class="badge-icon">${b.icon}</div>
+            <div class="badge-name">${b.name}</div>
+            <div class="badge-desc">${b.desc}</div>
+        </div>`).join('');
+}
+
+function checkAchievements() { buildBadges(); }
+
+// ─── SETTINGS ─────────────────────────────────────────────
+function updateName() {
+    const n = document.getElementById('settingName').value.trim();
+    if (!n) return;
+    S.user.name = n;
+    localStorage.setItem('pm_session', JSON.stringify(S.user));
+    updateUserUI();
+    updateGreeting();
+    save();
+    toast('Name updated!', 'success');
+}
+
+function toggleSetting(el, key) {
+    el.classList.toggle('on');
+    S.settings[key] = el.classList.contains('on');
+    save();
+}
+
+function exportCSV() {
+    if (!S.todos.length) { toast('No tasks to export!', 'error'); return; }
+    const rows = ['Task,Priority,Subject,Due Date,Completed', ...S.todos.map(t => `"${t.text}",${t.priority},${t.subject},${t.due||''},${t.done}`)];
+    download(rows.join('\n'), 'prepmeter-tasks.csv', 'text/csv');
+    toast('CSV exported!', 'success');
+}
+
+function exportJSON() {
+    download(JSON.stringify(S, null, 2), 'prepmeter-backup.json', 'application/json');
+    toast('Data exported!', 'success');
+}
+
+function clearData() {
+    if (!confirm('⚠️ This will delete ALL your tasks and progress. Are you sure?')) return;
+    S.todos = []; S.streak = 0; S.studyMins = 0; S.sessions = 0; S.bestDaySessions = 0; S.daily = {};
+    save();
+    renderTodos();
+    updateDashboard();
+    buildBadges();
+    toast('All data cleared.', 'info');
+}
+
+function download(content, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name; a.click();
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────
+function showNotifications() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdue = S.todos.filter(t=>!t.done&&t.due&&new Date(t.due)<today);
+    const highPend = S.todos.filter(t=>t.priority==='high'&&!t.done);
+    let msgs = [];
+    if (overdue.length) msgs.push(`⚠️ ${overdue.length} overdue task(s)!`);
+    if (highPend.length) msgs.push(`🔴 ${highPend.length} high-priority task(s) pending`);
+    if (S.streak > 0) msgs.push(`🔥 ${S.streak}-day streak — keep it up!`);
+    if (!msgs.length) msgs.push('✅ All clear! No urgent items.');
+    alert('🔔 Notifications:\n\n' + msgs.join('\n'));
+    document.getElementById('notifDot').style.display = 'none';
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+    const wrap = document.getElementById('toastWrap');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = msg;
+    wrap.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadUsers();
+    checkSession();
+
+    // Set today as default due date
+    const dueDateEl = document.getElementById('todoDue');
+    if (dueDateEl) dueDateEl.valueAsDate = new Date();
+
+    // Setup Google (will be called again after login)
+    const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+    if (typeof google !== 'undefined' && google.accounts && CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+        google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGoogleLogin });
+    }
+});
+</script>
+
+<!-- Google One Tap (optional - replace with your client ID) -->
+<div id="g_id_onload"
+     data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+     data-callback="onGoogleLogin"
+     data-auto_prompt="false">
+</div>
+</body>
+</html>
