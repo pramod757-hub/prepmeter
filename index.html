@@ -619,7 +619,7 @@ function updUI(){if(!S.user)return;const i=S.user.name.charAt(0).toUpperCase();[
 function updGr(){const h=new Date().getHours();sT('greet',(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', '+(S.user?S.user.name:'')+' 👋');sT('dateStr',new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))}
 
 // PENALTY ENGINE
-function tK(){return new Date().toISOString().split('T')[0]}
+function tK(){     // Day starts at 7 AM (so night study counts to previous day)     const now=new Date();     if(now.getHours()<7){         now.setDate(now.getDate()-1);     }     return now.toISOString().split('T')[0]; }
 function rollDay(){const t=tK();if(S.lastStudyDate===t)return;if(S.lastStudyDate&&S.daily[S.lastStudyDate]){const p=S.daily[S.lastStudyDate],tg=p.target||S.currentTarget,fh=(p.focus||0)/3600,eh=(p.extra||0)/3600;if(fh>=tg){p.completed=true;S.streak++;S.longestStreak=Math.max(S.longestStreak,S.streak);if(eh>=S.dsc.redH){S.penalty=Math.max(0,S.penalty-Math.floor(eh/S.dsc.redH)*S.dsc.redAmt)}S.currentTarget=Math.min(S.dsc.max,Math.max(S.dsc.base,S.dsc.base+S.penalty))}else{S.streak=0;S.penalty=Math.min(S.dsc.max-S.dsc.base,S.penalty+S.dsc.penInc);S.currentTarget=Math.min(S.dsc.max,S.dsc.base+S.penalty)}}else if(S.lastStudyDate){S.streak=0;S.penalty=Math.min(S.dsc.max-S.dsc.base,S.penalty+S.dsc.penInc);S.currentTarget=Math.min(S.dsc.max,S.dsc.base+S.penalty)}S.todayFocusSec=0;S.todayBreakSec=0;S.todayExtraSec=0;S.todayCompleted=false;S.lastStudyDate=t;if(!S.daily[t])S.daily[t]={focus:0,break:0,extra:0,target:S.currentTarget,completed:false};S.daily[t].target=S.currentTarget;sv()}
 
 // STUDY TIMER
@@ -646,17 +646,246 @@ function fmt(s){s=Math.max(0,Math.floor(s));return[Math.floor(s/3600),Math.floor
 function fS(s){s=Math.max(0,Math.floor(s));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m'}
 
 // POMODORO
-function setPm(f,b,el){if(pm.running)return toast('Stop pomo first','wr');document.querySelectorAll('.pM').forEach(x=>x.classList.remove('on'));if(el)el.classList.add('on');gI('cpBox').style.display='none';pm.fM=f;pm.bM=b;pm.mode='focus';pm.tS=f*60;pm.rS=f*60;updPmD();sT('pStat',`Focus ${f}/${b}`);toast(`Pomo: ${f}/${b}`,'in')}
-function showCp(){const b=gI('cpBox');b.style.display=b.style.display==='none'?'block':'none';document.querySelectorAll('.pM').forEach(x=>x.classList.remove('on'));gI('cpBtn').classList.add('on')}
-function applyCp(){const f=parseInt(gI('cpF').value)||25,b=parseInt(gI('cpB').value)||5;if(f<1||f>180||b<1||b>60)return toast('Invalid values','wr');pm.fM=f;pm.bM=b;pm.mode='focus';pm.tS=f*60;pm.rS=f*60;pm.running=false;clearInterval(pm.intId);gI('cpBox').style.display='none';updPmD();sT('pStat',`Custom ${f}/${b}`);toast(`Custom: ${f}/${b} set! 🎯`,'ok')}
-function startPm(){if(pm.running&&!pm.paused)return;if(pm.paused){pm.paused=false}else{pm.running=true;pm.paused=false}clearInterval(pm.intId);pm.intId=setInterval(pmTick,1000);if(pm.mode==='focus'){if(!st.running)startStudy();else if(st.paused||st.inBreak){endBreak();startStudy()}sT('pStat','🔥 FOCUS — Timer running!')}else{sT('pStat','☕ Break')}updPmD()}
-function pausePm(){if(!pm.running)return;pm.paused=true;clearInterval(pm.intId);if(pm.mode==='focus')pauseStudy();sT('pStat','⏸ Paused')}
-function skipPm(){if(!pm.running)return;pm.rS=0;pmTick()}
-function resetPm(){stopPm();pm.mode='focus';pm.rS=pm.fM*60;pm.tS=pm.fM*60;updPmD();sT('pStat',`Ready ${pm.fM}/${pm.bM}`)}
-function stopPm(){clearInterval(pm.intId);pm.running=false;pm.paused=false}
-function pmTick(){if(!pm.running||pm.paused)return;pm.rS--;updPmD();if(pm.rS<=0){clearInterval(pm.intId);pm.running=false;if(pm.mode==='focus'){pm.cnt++;S.pomoCount++;addXP(50);playS();toast('🍅 Pomo #'+pm.cnt+'! +50 XP','ok');takeBreak();pm.mode='break';pm.tS=pm.bM*60;pm.rS=pm.bM*60;updPmD();pm.running=true;pm.intId=setInterval(pmTick,1000)}else{pm.mode='focus';pm.tS=pm.fM*60;pm.rS=pm.fM*60;sT('pStat','Break done! Press Start');endBreak();pm.running=false;updPmD();playS();toast('Break over! 💪','in')}rDots();sv()}}
-function updPmD(){const m=Math.floor(pm.rS/60),s=pm.rS%60;sT('pTm',String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'));rDots()}
-function rDots(){const d=gI('sDots');if(!d)return;let h='';for(let i=0;i<Math.min(Math.max(4,pm.cnt+1),8);i++)h+=`<div class="sD ${i<pm.cnt?'dn':''} ${i===pm.cnt&&pm.running&&pm.mode==='focus'?'act':''}"></div>`;d.innerHTML=h}
+// ============ POMODORO - FULLY FIXED ============
+function setPm(f, b, el) {
+    // Stop any running pomo
+    if (pm.intId) {
+        clearInterval(pm.intId);
+        pm.intId = null;
+    }
+    pm.running = false;
+    pm.paused = false;
+    
+    // Update active button
+    document.querySelectorAll('.pM').forEach(x => x.classList.remove('on'));
+    if (el) el.classList.add('on');
+    
+    // Hide custom box
+    const cpBox = gI('cpBox');
+    if (cpBox) cpBox.style.display = 'none';
+    
+    // Set new values
+    pm.fM = f;
+    pm.bM = b;
+    pm.mode = 'focus';
+    pm.tS = f * 60;
+    pm.rS = f * 60;
+    pm.cnt = 0;
+    
+    updPmD();
+    sT('pStat', `Focus ${f}/${b} • Press Start`);
+    toast(`Pomodoro set: ${f}min focus / ${b}min break`, 'in');
+    sv();
+}
+
+function showCp() {
+    const b = gI('cpBox');
+    if (!b) return;
+    b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    document.querySelectorAll('.pM').forEach(x => x.classList.remove('on'));
+    const cpBtn = gI('cpBtn');
+    if (cpBtn) cpBtn.classList.add('on');
+}
+
+function applyCp() {
+    const f = parseInt(gI('cpF').value) || 25;
+    const b = parseInt(gI('cpB').value) || 5;
+    
+    if (f < 1 || f > 180) return toast('Focus must be 1-180 minutes', 'wr');
+    if (b < 1 || b > 60) return toast('Break must be 1-60 minutes', 'wr');
+    
+    // Stop running pomo
+    if (pm.intId) {
+        clearInterval(pm.intId);
+        pm.intId = null;
+    }
+    pm.running = false;
+    pm.paused = false;
+    
+    pm.fM = f;
+    pm.bM = b;
+    pm.mode = 'focus';
+    pm.tS = f * 60;
+    pm.rS = f * 60;
+    pm.cnt = 0;
+    
+    gI('cpBox').style.display = 'none';
+    updPmD();
+    sT('pStat', `Custom ${f}/${b} • Press Start`);
+    toast(`Custom pomodoro: ${f}min/${b}min set! 🎯`, 'ok');
+    sv();
+}
+
+function startPm() {
+    // Already running and not paused
+    if (pm.running && !pm.paused) return;
+    
+    // Resume from pause
+    if (pm.paused) {
+        pm.paused = false;
+    } else {
+        pm.running = true;
+        pm.paused = false;
+    }
+    
+    // Clear any existing interval
+    if (pm.intId) clearInterval(pm.intId);
+    
+    // Start ticking
+    pm.intId = setInterval(pmTick, 1000);
+    
+    // Link with study timer
+    if (pm.mode === 'focus') {
+        // Auto-start study timer
+        if (!st.running) {
+            startStudy();
+        } else if (st.paused) {
+            st.paused = false;
+            st.focusTs = Date.now();
+            if (st.intId) clearInterval(st.intId);
+            st.intId = setInterval(stTick, 1000);
+            gI('stBtn').disabled = true;
+            gI('paBtn').disabled = false;
+        } else if (st.inBreak) {
+            endBreak();
+            startStudy();
+        }
+        sT('pStat', '🔥 FOCUS — Study Timer running!');
+    } else {
+        sT('pStat', '☕ BREAK — Study Timer stopped');
+    }
+    
+    updPmD();
+    toast(pm.mode === 'focus' ? '🍅 Focus started!' : '☕ Break started!', 'ok');
+}
+
+function pausePm() {
+    if (!pm.running) return;
+    pm.paused = true;
+    if (pm.intId) {
+        clearInterval(pm.intId);
+        pm.intId = null;
+    }
+    
+    // Pause study timer too
+    if (pm.mode === 'focus' && st.running && !st.paused && !st.inBreak) {
+        pauseStudy();
+    }
+    
+    sT('pStat', '⏸ Paused');
+    toast('Pomodoro paused', 'in');
+}
+
+function skipPm() {
+    if (!pm.running && !pm.paused) return;
+    pm.rS = 1;
+    pm.paused = false;
+    if (!pm.intId) {
+        pm.running = true;
+        pm.intId = setInterval(pmTick, 1000);
+    }
+}
+
+function resetPm() {
+    stopPm();
+    pm.mode = 'focus';
+    pm.rS = pm.fM * 60;
+    pm.tS = pm.fM * 60;
+    pm.cnt = 0;
+    updPmD();
+    sT('pStat', `Ready ${pm.fM}/${pm.bM}`);
+    toast('Pomodoro reset', 'in');
+}
+
+function stopPm() {
+    if (pm.intId) {
+        clearInterval(pm.intId);
+        pm.intId = null;
+    }
+    pm.running = false;
+    pm.paused = false;
+}
+
+function pmTick() {
+    if (!pm.running || pm.paused) return;
+    
+    pm.rS--;
+    updPmD();
+    
+    if (pm.rS <= 0) {
+        // Time's up!
+        clearInterval(pm.intId);
+        pm.intId = null;
+        pm.running = false;
+        
+        if (pm.mode === 'focus') {
+            // FOCUS COMPLETED - Switch to BREAK
+            pm.cnt++;
+            S.pomoCount++;
+            addXP(50);
+            playS();
+            toast('🍅 Pomodoro #' + pm.cnt + ' done! +50 XP — Break time!', 'ok');
+            
+            // Pause study timer (break starts)
+            takeBreak();
+            
+            // Switch to break mode
+            pm.mode = 'break';
+            pm.tS = pm.bM * 60;
+            pm.rS = pm.bM * 60;
+            
+            sT('pStat', '☕ BREAK — Study Timer stopped');
+            updPmD();
+            
+            // AUTO-START BREAK
+            pm.running = true;
+            pm.paused = false;
+            pm.intId = setInterval(pmTick, 1000);
+            
+        } else {
+            // BREAK COMPLETED - Switch to FOCUS (wait for user)
+            pm.mode = 'focus';
+            pm.tS = pm.fM * 60;
+            pm.rS = pm.fM * 60;
+            
+            sT('pStat', '🔔 Break over! Press Start for next focus');
+            
+            // End break on study timer
+            endBreak();
+            
+            pm.running = false;
+            pm.paused = false;
+            updPmD();
+            
+            playS();
+            toast('☕ Break finished! Ready for next focus 💪', 'in');
+        }
+        
+        rDots();
+        sv();
+    }
+}
+
+function updPmD() {
+    const m = Math.floor(pm.rS / 60);
+    const s = pm.rS % 60;
+    const display = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    sT('pTm', display);
+    rDots();
+}
+
+function rDots() {
+    const d = gI('sDots');
+    if (!d) return;
+    let h = '';
+    const max = Math.max(4, pm.cnt + 1);
+    for (let i = 0; i < Math.min(max, 8); i++) {
+        const isDone = i < pm.cnt;
+        const isActive = i === pm.cnt && pm.running && pm.mode === 'focus' && !pm.paused;
+        h += `<div class="sD ${isDone ? 'dn' : ''} ${isActive ? 'act' : ''}"></div>`;
+    }
+    d.innerHTML = h;
+}
 
 // TODO LIST
 function addTd(){const t=gI('tdText').value.trim();if(!t)return;const pri=gI('tdPri').value;S.todos.unshift({id:Date.now(),text:t,pri,done:false,created:new Date().toISOString()});gI('tdText').value='';sv();rTd();toast('Task added ✅','ok')}
